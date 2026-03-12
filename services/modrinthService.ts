@@ -200,7 +200,11 @@ export const fetchCurrentUser = async (token: string): Promise<ModrinthUser> => 
   const response = await fetch(`${BASE_URL}/user`, {
     headers: getHeaders(token)
   });
-  if (!response.ok) throw new Error('Failed to fetch user');
+  if (!response.ok) {
+    const err: any = new Error('Failed to fetch user');
+    err.status = response.status;
+    throw err;
+  }
   const me = await response.json();
 
   debugGroup('GET /user', () => {
@@ -682,7 +686,7 @@ export const addTeamMember = async (teamId: string, userId: string, token: strin
   const response = await fetch(`${BASE_URL}/team/${teamId}/members`, {
     method: 'POST',
     headers: getHeaders(token),
-    body: JSON.stringify({ user_id: userId, role: 'Contributor' }) 
+    body: JSON.stringify({ user_id: userId }) 
   });
   if (!response.ok) {
     const err = await response.text();
@@ -690,11 +694,16 @@ export const addTeamMember = async (teamId: string, userId: string, token: strin
   }
 };
 
-export const updateTeamMember = async (teamId: string, userId: string, role: string, token: string) => {
+export const updateTeamMember = async (
+  teamId: string,
+  userId: string,
+  data: { role?: string; permissions?: number; payouts_split?: number; ordering?: number },
+  token: string
+) => {
   const response = await fetch(`${BASE_URL}/team/${teamId}/members/${userId}`, {
     method: 'PATCH',
     headers: getHeaders(token),
-    body: JSON.stringify({ role })
+    body: JSON.stringify(data)
   });
   if (!response.ok) throw new Error('Failed to update member');
 };
@@ -705,6 +714,39 @@ export const deleteTeamMember = async (teamId: string, userId: string, token: st
     headers: getHeaders(token)
   });
   if (!response.ok) throw new Error('Failed to remove member');
+};
+
+export const joinTeam = async (teamId: string, token: string) => {
+  const response = await fetch(`${BASE_URL}/team/${teamId}/join`, {
+    method: 'POST',
+    headers: getHeaders(token)
+  });
+  if (!response.ok) throw new Error('Failed to join team');
+};
+
+export const transferTeamOwnership = async (teamId: string, userId: string, token: string) => {
+  const response = await fetch(`${BASE_URL}/team/${teamId}/owner`, {
+    method: 'PATCH',
+    headers: getHeaders(token),
+    body: JSON.stringify({ user_id: userId })
+  });
+  if (!response.ok) throw new Error('Failed to transfer ownership');
+};
+
+export const fetchTeamMembers = async (teamId: string, token: string): Promise<ProjectMember[]> => {
+  const response = await fetch(`${BASE_URL}/team/${teamId}/members`, {
+    headers: getHeaders(token)
+  });
+  if (!response.ok) throw new Error('Failed to fetch team members');
+  return response.json();
+};
+
+export const fetchTeams = async (ids: string[]): Promise<any[]> => {
+  if (ids.length === 0) return [];
+  const idsParam = JSON.stringify(ids);
+  const response = await fetch(`${BASE_URL}/teams?ids=${encodeURIComponent(idsParam)}`);
+  if (!response.ok) return [];
+  return response.json();
 };
 
 // --- Notifications API ---

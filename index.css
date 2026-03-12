@@ -1,3 +1,17 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.markdown-preview img {
+  max-width: 100%;
+  height: auto;
+  display: inline-block;
+}
+
+.markdown-preview blockquote {
+  border-left: 3px solid var(--border);
+  padding: 0.35rem 0 0.35rem 0.85rem;
+  margin: 0.5rem 0;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.02);
+}

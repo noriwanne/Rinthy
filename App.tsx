@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo, createContext, useContext, useRef } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo, createContext, useContext, useRef } from 'react';
 
 declare const __APP_VERSION__: string;
 import { HashRouter, Routes, Route, useNavigate, useParams, Outlet, useLocation } from 'react-router-dom';
 import { App as CapApp } from '@capacitor/app';
 import { Loader2, LogOut, ArrowLeft, Save, ExternalLink, BarChart2, ShieldCheck, Key, ChevronRight, Download, Activity, BookOpen, FileText, Monitor, Server, Edit3, Globe, Wallet, DollarSign, TrendingUp, Archive, Lock, EyeOff, Info, Heart, Clock, Users, Trash2, Moon, Sun, Smartphone, UserPlus, Search, X, Check, ChevronDown, Bell, AlertTriangle, Image as ImageIcon, Upload, Package, Calendar, File as FileIcon, Layers, MousePointerClick, CheckCheck, RefreshCw, MoreVertical } from 'lucide-react';
-import { fetchCurrentUser, fetchUserProjects, fetchProject, updateProject, fetchProjectMembers, deleteTeamMember, updateTeamMember, searchUser, addTeamMember, modifyUser, fetchNotifications, deleteNotification, markNotificationRead, markMultipleNotificationsRead, changeProjectIcon, deleteProjectIcon, addGalleryImage, deleteGalleryImage, fetchProjectDependencies, fetchProjectVersions, fetchGameVersionTags, fetchLoaderTags, modifyVersion, deleteVersionById, fetchUserPayoutHistoryWithStatus, fetchUserByIdWithStatus, fetchPayoutBalanceV3WithStatus } from './services/modrinthService';
+import { fetchCurrentUser, fetchUserProjects, fetchProject, updateProject, fetchProjectMembers, deleteTeamMember, updateTeamMember, searchUser, addTeamMember, modifyUser, fetchNotifications, deleteNotification, markNotificationRead, markMultipleNotificationsRead, changeProjectIcon, deleteProjectIcon, addGalleryImage, deleteGalleryImage, fetchProjectDependencies, fetchProjectVersions, fetchGameVersionTags, fetchLoaderTags, modifyVersion, deleteVersionById, fetchUserPayoutHistoryWithStatus, fetchUserByIdWithStatus, fetchPayoutBalanceV3WithStatus, joinTeam, transferTeamOwnership } from './services/modrinthService';
 import { AuthState, ModrinthUser, ModrinthProject, NavTab, ProjectMember, SettingsContextType, ThemeMode, Language, UserSearchResult, ModifyUserPayload, ModrinthNotification, ProjectDependency, ModrinthVersion, ModrinthPayoutHistory } from './types';
 import ProjectCard from './components/ProjectCard';
 import BottomNav from './components/BottomNav';
@@ -14,7 +14,7 @@ const BackButtonHandler: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [lastBackPress, setLastBackPress] = useState(0);
-  const { t } = useSettings();
+  const { t, theme } = useSettings();
 
   useEffect(() => {
     if (!CapApp || typeof (CapApp as any).addListener !== 'function') return;
@@ -168,8 +168,28 @@ const TRANSLATIONS = {
     remove: 'Удалить',
     manage_members: 'Управление участниками',
     member_remove_confirm: 'Удалить участника?',
+    permissions_label: 'Права',
+    payouts_split_label: 'Доля выплат (%)',
+    ordering_label: 'Порядок',
+    transfer_owner: 'Передать владельца',
+    accept_invite: 'Принять приглашение',
+    custom_role_placeholder: 'Своя роль',
+    user_not_found: 'Пользователь не найден. Проверьте никнейм.',
+    perm_upload_version: 'Заливать версии',
+    perm_delete_version: 'Удалять версии',
+    perm_edit_details: 'Править детали',
+    perm_edit_body: 'Править описание',
+    perm_manage_invites: 'Управлять инвайтами',
+    perm_remove_member: 'Удалять участника',
+    perm_edit_member: 'Править участника',
+    perm_delete_project: 'Удалять проект',
+    perm_view_analytics: 'Смотреть аналитику',
+    perm_view_payouts: 'Смотреть выплаты',
+    transfer_owner_title: 'Передать владельца?',
+    transfer_owner_confirm: 'Передать',
+    transfer_owner_desc: 'Вы передадите владение пользователю:',
     invite: 'Пригласить',
-    search_user: 'Введите точный никнейм...',
+    search_user: 'Введите никнейм...',
     edit_profile: 'Редактировать профиль',
     cancel: 'Отмена',
     bio: 'О себе',
@@ -305,8 +325,28 @@ const TRANSLATIONS = {
     remove: 'Remove',
     manage_members: 'Manage Members',
     member_remove_confirm: 'Remove member?',
+    permissions_label: 'Permissions',
+    payouts_split_label: 'Payout split (%)',
+    ordering_label: 'Ordering',
+    transfer_owner: 'Transfer owner',
+    accept_invite: 'Accept invite',
+    custom_role_placeholder: 'Custom role',
+    user_not_found: 'User not found. Check the username.',
+    perm_upload_version: 'Upload versions',
+    perm_delete_version: 'Delete versions',
+    perm_edit_details: 'Edit details',
+    perm_edit_body: 'Edit body',
+    perm_manage_invites: 'Manage invites',
+    perm_remove_member: 'Remove member',
+    perm_edit_member: 'Edit member',
+    perm_delete_project: 'Delete project',
+    perm_view_analytics: 'View analytics',
+    perm_view_payouts: 'View payouts',
+    transfer_owner_title: 'Transfer ownership?',
+    transfer_owner_confirm: 'Transfer',
+    transfer_owner_desc: 'You will transfer ownership to:',
     invite: 'Invite',
-    search_user: 'Enter exact username...',
+    search_user: 'Enter username...',
     edit_profile: 'Edit Profile',
     cancel: 'Cancel',
     bio: 'Bio',
@@ -466,7 +506,7 @@ const WelcomeSetup: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
 
 const Onboarding: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const [step, setStep] = useState(0);
-  const { t } = useSettings();
+  const { t, theme } = useSettings();
   const steps = [
     {
       icon: <ModrinthLogo className="w-16 h-16 text-modrinth-green" />,
@@ -506,9 +546,15 @@ const Onboarding: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   );
 };
 
-const LoginScreen: React.FC<{ onLogin: (token: string) => void; isLoading: boolean; error: string | null; onShowHelp: () => void }> = ({ onLogin, isLoading, error, onShowHelp }) => {
-  const [tokenInput, setTokenInput] = useState('');
-  const { t } = useSettings();
+const LoginScreen: React.FC<{ onLogin: (token: string) => void; isLoading: boolean; error: string | null; onShowHelp: () => void; savedToken?: string | null }> = ({ onLogin, isLoading, error, onShowHelp, savedToken }) => {
+  const [tokenInput, setTokenInput] = useState(savedToken || '');
+
+  useEffect(() => {
+    if (!tokenInput && savedToken) {
+      setTokenInput(savedToken);
+    }
+  }, [savedToken, tokenInput]);
+  const { t, theme } = useSettings();
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-modrinth-bg p-6 relative overflow-hidden">
       <div className="w-full max-w-xs animate-fade-in-up relative z-10">
@@ -538,7 +584,7 @@ const LoginScreen: React.FC<{ onLogin: (token: string) => void; isLoading: boole
 };
 
 const TokenHelpModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const { t } = useSettings();
+  const { t, theme } = useSettings();
 
   return (
     <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in" onClick={onClose}>
@@ -620,7 +666,7 @@ const UpdateModal: React.FC<{ release: GitHubRelease; onClose: () => void }> = (
   );
 };
 
-const NotificationsModal: React.FC<{ isOpen: boolean; onClose: () => void; user: ModrinthUser; token: string }> = ({ isOpen, onClose, user, token }) => {
+const NotificationsModal: React.FC<{ isOpen: boolean; onClose: () => void; user: ModrinthUser; token: string; onUnreadCountChange?: (count: number) => void }> = ({ isOpen, onClose, user, token, onUnreadCountChange }) => {
     const [notifs, setNotifs] = useState<ModrinthNotification[]>([]);
     const [loading, setLoading] = useState(true);
     const { t, theme } = useSettings();
@@ -630,17 +676,25 @@ const NotificationsModal: React.FC<{ isOpen: boolean; onClose: () => void; user:
             setLoading(true);
             // Explicitly fetch unread and force filter on client side to avoid ghosts from cache
             fetchNotifications(user.id, token, 'unread')
-                .then(data => setNotifs(data.filter(n => !n.read)))
+                .then(data => {
+                  const unread = data.filter(n => !n.read);
+                  setNotifs(unread);
+                  onUnreadCountChange?.(unread.length);
+                })
                 .catch(console.error)
                 .finally(() => setLoading(false));
         }
-    }, [isOpen, user.id, token]);
+    }, [isOpen, user.id, token, onUnreadCountChange]);
 
     const handleRead = async (id: string) => {
         try {
             await markNotificationRead(id, token);
             // Remove immediately from UI
-            setNotifs(prev => prev.filter(n => n.id !== id));
+            setNotifs(prev => {
+              const next = prev.filter(n => n.id !== id);
+              onUnreadCountChange?.(next.length);
+              return next;
+            });
         } catch (e) { console.error(e); }
     };
 
@@ -651,6 +705,7 @@ const NotificationsModal: React.FC<{ isOpen: boolean; onClose: () => void; user:
             setLoading(true);
             await markMultipleNotificationsRead(ids, token);
             setNotifs([]);
+            onUnreadCountChange?.(0);
         } catch(e) { console.error(e); }
         setLoading(false);
     };
@@ -716,8 +771,9 @@ const Dashboard: React.FC<{ user: ModrinthUser; token: string }> = ({ user, toke
   const [projects, setProjects] = useState<ModrinthProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
-  const { t } = useSettings();
+  const { t, theme } = useSettings();
 
   const loadProjects = useCallback(() => {
     let mounted = true;
@@ -742,6 +798,16 @@ const Dashboard: React.FC<{ user: ModrinthUser; token: string }> = ({ user, toke
     return cleanup;
   }, [loadProjects]);
 
+  const refreshUnread = useCallback(() => {
+    fetchNotifications(user.id, token, 'unread')
+      .then(data => setUnreadCount(data.filter(n => !n.read).length))
+      .catch(() => {});
+  }, [user.id, token]);
+
+  useEffect(() => {
+    refreshUnread();
+  }, [refreshUnread]);
+
   return (
     <div className="pb-4 px-4 animate-fade-in">
       <header className="flex justify-between items-center mb-6 sticky top-0 z-50 backdrop-blur-xl pt-[calc(env(safe-area-inset-top)+0.85rem)] pb-3 -mx-4 px-4 min-h-[84px] shadow-[0_8px_24px_rgba(0,0,0,0.35)] overflow-hidden relative transition-colors duration-300" style={{ backgroundColor: 'rgba(var(--card-rgb), 0.7)' }}>
@@ -759,7 +825,11 @@ const Dashboard: React.FC<{ user: ModrinthUser; token: string }> = ({ user, toke
            </button>
            <button onClick={()=>setShowNotifs(true)} className="relative p-2 text-modrinth-muted hover:text-modrinth-green transition-colors">
               <Bell size={24} />
-              {/* TODO: Add dynamic unread badge based on API */}
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
            </button>
            <img src={user.avatar_url} alt="User" className="w-9 h-9 rounded-full shadow-[0_6px_18px_rgba(0,0,0,0.28)]" />
         </div>
@@ -780,7 +850,13 @@ const Dashboard: React.FC<{ user: ModrinthUser; token: string }> = ({ user, toke
           )}
         </div>
       )}
-      <NotificationsModal isOpen={showNotifs} onClose={()=>setShowNotifs(false)} user={user} token={token} />
+      <NotificationsModal
+        isOpen={showNotifs}
+        onClose={() => { setShowNotifs(false); refreshUnread(); }}
+        user={user}
+        token={token}
+        onUnreadCountChange={setUnreadCount}
+      />
     </div>
   );
 };
@@ -789,7 +865,7 @@ const InviteMemberModal: React.FC<{ isOpen: boolean; onClose: () => void; onInvi
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
-  const { t } = useSettings();
+  const { t, theme } = useSettings();
 
   useEffect(() => {
     if (!query) { setResults([]); return; }
@@ -808,23 +884,43 @@ const InviteMemberModal: React.FC<{ isOpen: boolean; onClose: () => void; onInvi
 
   if (!isOpen) return null;
 
+  const overlayClass = theme === 'light' ? 'bg-black/30' : 'bg-black/60';
+  const modalClass = theme === 'light'
+    ? 'bg-white/95 border border-black/10 shadow-[0_14px_36px_rgba(0,0,0,0.2)]'
+    : 'bg-modrinth-card/85 shadow-[0_14px_36px_rgba(0,0,0,0.4)]';
+  const closeButtonClass = theme === 'light'
+    ? 'p-2 rounded-full hover:bg-black/5 text-black/60 hover:text-black transition-colors'
+    : 'p-2 rounded-full hover:bg-modrinth-cardHover text-modrinth-muted hover:text-modrinth-text transition-colors';
+  const rowHoverClass = theme === 'light' ? 'hover:bg-black/5' : 'hover:bg-modrinth-bg/60';
+
   return (
-    <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-modrinth-card/85 backdrop-blur-xl w-full max-w-sm rounded-3xl p-5 animate-fade-in-up shadow-[0_14px_36px_rgba(0,0,0,0.4)] relative overflow-hidden">
+    <div className={`fixed inset-0 z-[150] ${overlayClass} backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in`}>
+      <div className={`${modalClass} backdrop-blur-xl w-full max-w-sm rounded-3xl p-5 animate-fade-in-up relative overflow-hidden`}>
         <div className="relative">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold text-modrinth-text">{t('invite')}</h3>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-modrinth-cardHover text-modrinth-muted hover:text-modrinth-text transition-colors">
+          <button onClick={onClose} className={closeButtonClass}>
           <X size={18}/></button>
         </div>
         <div className="relative mb-4">
-           <Search className="absolute left-3 top-3 text-modrinth-muted" size={16}/>
-           <input autoFocus type="text" placeholder={t('search_user')} className="w-full bg-modrinth-bg/60 border border-modrinth-border/70 rounded-2xl pl-10 pr-4 py-3 text-sm text-modrinth-text focus:border-modrinth-green outline-none" value={query} onChange={e=>setQuery(e.target.value)} />
+           <Search className={`absolute left-3 top-3 ${theme === 'light' ? 'text-black/40' : 'text-modrinth-muted'}`} size={16}/>
+           <input
+             autoFocus
+             type="text"
+             placeholder={t('search_user')}
+             className={`w-full rounded-2xl pl-10 pr-4 py-3 text-sm outline-none border transition-colors ${
+               theme === 'light'
+                 ? 'bg-white text-black border-black/10 placeholder:text-black/40 focus:border-modrinth-green'
+                 : 'bg-modrinth-bg text-modrinth-text border-modrinth-border/70 placeholder:text-modrinth-muted focus:border-modrinth-green'
+             }`}
+             value={query}
+             onChange={e=>setQuery(e.target.value)}
+           />
         </div>
         <div className="max-h-60 overflow-y-auto space-y-2">
            {searching && <div className="flex justify-center py-4"><Loader2 className="animate-spin text-modrinth-green"/></div>}
            {!searching && results.map(user => (
-             <div key={user.user_id} className="flex items-center justify-between p-2 hover:bg-modrinth-bg/60 rounded-2xl group cursor-pointer" onClick={() => { onInvite(user.user_id); onClose(); }}>
+             <div key={user.user_id} className={`flex items-center justify-between p-2 rounded-2xl group cursor-pointer ${rowHoverClass}`} onClick={() => { onInvite(user.user_id); onClose(); }}>
                 <div className="flex items-center gap-3">
                   <img src={user.avatar_url} className="w-8 h-8 rounded-full" alt=""/>
                   <span className="text-sm font-bold text-modrinth-text">{user.username}</span>
@@ -832,7 +928,7 @@ const InviteMemberModal: React.FC<{ isOpen: boolean; onClose: () => void; onInvi
                 <button className="bg-modrinth-green/16 text-modrinth-green px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-modrinth-green hover:text-white transition-colors active:scale-[0.98]">{t('add')}</button>
              </div>
            ))}
-           {!searching && query && results.length === 0 && <p className="text-center text-xs text-modrinth-muted py-4">User not found. Enter exact username.</p>}
+           {!searching && query && results.length === 0 && <p className="text-center text-xs text-modrinth-muted py-4">{t('user_not_found')}</p>}
         </div>
         </div>
       </div>
@@ -908,7 +1004,7 @@ const ProfileEditModal: React.FC<{ isOpen: boolean; onClose: () => void; user: M
   );
 };
 
-const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
+const ProjectDetail: React.FC<{ token: string; currentUserId?: string | null }> = ({ token, currentUserId }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [project, setProject] = useState<ModrinthProject | null>(null);
@@ -930,9 +1026,26 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
   const [editingVersionDependencies, setEditingVersionDependencies] = useState<ProjectDependency[]>([]);
   const [savingVersion, setSavingVersion] = useState(false);
   const [versionMenuId, setVersionMenuId] = useState<string | null>(null);
-  const { t } = useSettings();
+  const { t, theme } = useSettings();
 
   const [showBodyPreview, setShowBodyPreview] = useState(false);
+  const [galleryPreviewUrl, setGalleryPreviewUrl] = useState<string | null>(null);
+  const [memberEdits, setMemberEdits] = useState<Record<string, { role: string; permissions: string; payouts_split: string; ordering: string }>>({});
+  const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
+  const [transferCandidate, setTransferCandidate] = useState<{ id: string; name: string } | null>(null);
+
+  const permissionDefs = useMemo(() => ([
+    { bit: 0, label: t('perm_upload_version') },
+    { bit: 1, label: t('perm_delete_version') },
+    { bit: 2, label: t('perm_edit_details') },
+    { bit: 3, label: t('perm_edit_body') },
+    { bit: 4, label: t('perm_manage_invites') },
+    { bit: 5, label: t('perm_remove_member') },
+    { bit: 6, label: t('perm_edit_member') },
+    { bit: 7, label: t('perm_delete_project') },
+    { bit: 8, label: t('perm_view_analytics') },
+    { bit: 9, label: t('perm_view_payouts') }
+  ]), [t]);
 
   const [gameVersionTags, setGameVersionTags] = useState<string[]>([]);
   const [loaderTags, setLoaderTags] = useState<string[]>([]);
@@ -1090,6 +1203,24 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  useEffect(() => {
+    if (members.length === 0) return;
+    setMemberEdits(prev => {
+      const next = { ...prev };
+      members.forEach(m => {
+        if (!next[m.user.id]) {
+          next[m.user.id] = {
+            role: m.role || '',
+            permissions: m.permissions !== undefined && m.permissions !== null ? String(m.permissions) : '',
+            payouts_split: (m as any).payouts_split !== undefined && (m as any).payouts_split !== null ? String((m as any).payouts_split) : '',
+            ordering: (m as any).ordering !== undefined && (m as any).ordering !== null ? String((m as any).ordering) : ''
+          };
+        }
+      });
+      return next;
+    });
+  }, [members]);
+
   const handleInputChange = (field: keyof ModrinthProject | string, value: any) => {
     setFormData(prev => field === 'license_id' ? { ...prev, license: { ...prev.license!, id: value, name: prev.license?.name || '' } } : { ...prev, [field]: value });
   };
@@ -1097,38 +1228,62 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
   const renderMarkdown = (text: string) => {
     if (!text) return { __html: '' };
 
-    let safe = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-
     const formatInline = (value: string) => {
-      let v = value;
-      // Links
-      v = v.replace(/\[(.+?)\]\((https?:[^\s)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer">$1<\/a>');
-      // Code
+      let v = value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      const tokens: string[] = [];
+      const stash = (html: string) => {
+        const key = `%%MDTOKEN${tokens.length}%%`;
+        tokens.push(html);
+        return key;
+      };
+
+      v = v.replace(/\[\!\[(.*?)\]\((https?:[^\s)]+)\)\]\((https?:[^\s)]+)\)/gim, (_m, alt, src, href) =>
+        stash(`<a href="${href}" target="_blank" rel="noopener noreferrer"><img src="${src}" alt="${alt}" referrerpolicy="no-referrer" loading="lazy" /></a>`)
+      );
+      v = v.replace(/!\[(.*?)\]\((https?:[^\s)]+)\)/gim, (_m, alt, src) =>
+        stash(`<img src="${src}" alt="${alt}" referrerpolicy="no-referrer" loading="lazy" />`)
+      );
+      v = v.replace(/\[(.+?)\]\((https?:[^\s)]+)\)/gim, (_m, text, href) =>
+        stash(`<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`)
+      );
+
       v = v.replace(/`([^`]+)`/gim, '<code>$1<\/code>');
-      // Bold
       v = v.replace(/\*\*(.*?)\*\*/gim, '<strong>$1<\/strong>');
       v = v.replace(/__(.*?)__/gim, '<strong>$1<\/strong>');
-      // Strikethrough
       v = v.replace(/~~(.*?)~~/gim, '<del>$1<\/del>');
-      // Italic
       v = v.replace(/_(.*?)_/gim, '<em>$1<\/em>');
       v = v.replace(/\*(.*?)\*/gim, '<em>$1<\/em>');
+
+      tokens.forEach((html, i) => {
+        const key = `%%MDTOKEN${i}%%`;
+        v = v.split(key).join(html);
+      });
+
       return v;
     };
 
-    const lines = safe.split(/\n/);
+    const lines = text.split(/\n/);
     const htmlParts: string[] = [];
     let inList = false;
     let lastWasH1 = false;
+    let paragraphParts: string[] = [];
+
+    const flushParagraph = () => {
+      if (paragraphParts.length === 0) return;
+      htmlParts.push(`<p>${paragraphParts.join(' ')}<\/p>`);
+      paragraphParts = [];
+    };
 
     for (let raw of lines) {
       const line = raw.trimEnd();
       const content = line.trimStart();
 
       if (!line.trim()) {
+        flushParagraph();
         if (inList) {
           htmlParts.push('</ul>');
           inList = false;
@@ -1137,9 +1292,9 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
         continue;
       }
 
-      // Headings
       const h3 = /^###\s+(.*)/.exec(content);
       if (h3) {
+        flushParagraph();
         if (inList) {
           htmlParts.push('</ul>');
           inList = false;
@@ -1150,6 +1305,7 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
       }
       const h2 = /^##\s+(.*)/.exec(content);
       if (h2) {
+        flushParagraph();
         if (inList) {
           htmlParts.push('</ul>');
           inList = false;
@@ -1160,6 +1316,7 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
       }
       const h1 = /^#\s+(.*)/.exec(content);
       if (h1) {
+        flushParagraph();
         if (inList) {
           htmlParts.push('</ul>');
           inList = false;
@@ -1169,10 +1326,9 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
         continue;
       }
 
-      // Horizontal rule (---)
       if (/^-{3,}\s*$/.test(content)) {
+        flushParagraph();
         if (lastWasH1) {
-          // Skip extra hr right after a level-1 heading to avoid double line
           lastWasH1 = false;
           continue;
         }
@@ -1185,9 +1341,9 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
         continue;
       }
 
-      // Unordered list item
       const li = /^-\s+(.*)/.exec(content);
       if (li) {
+        flushParagraph();
         if (!inList) {
           htmlParts.push('<ul>');
           inList = true;
@@ -1197,9 +1353,9 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
         continue;
       }
 
-      // Blockquote
       const bq = /^>\s?(.*)/.exec(content);
       if (bq) {
+        flushParagraph();
         if (inList) {
           htmlParts.push('</ul>');
           inList = false;
@@ -1211,12 +1367,14 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
 
       if (inList) {
         htmlParts.push('</ul>');
+        inList = false;
       }
 
-      htmlParts.push(`<p>${formatInline(line)}<\/p>`);
+      paragraphParts.push(formatInline(line));
       lastWasH1 = false;
     }
 
+    flushParagraph();
     if (inList) {
       htmlParts.push('</ul>');
     }
@@ -1278,12 +1436,49 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
     } catch(e) { alert('Failed to remove member'); }
   };
 
-  const handleRoleChange = async (userId: string, newRole: string) => {
+  const handleRoleSave = async (userId: string) => {
      if(!project) return;
+     const edit = memberEdits[userId];
+     if (!edit) return;
+     const payload: any = {};
+     if (edit.role.trim() !== '') payload.role = edit.role.trim();
+     const permissionsNum = edit.permissions !== '' ? Number(edit.permissions) : null;
+     const payoutsSplitNum = edit.payouts_split !== '' ? Number(edit.payouts_split) : null;
+     const orderingNum = edit.ordering !== '' ? Number(edit.ordering) : null;
+     if (permissionsNum !== null && !Number.isNaN(permissionsNum)) payload.permissions = permissionsNum;
+     if (payoutsSplitNum !== null && !Number.isNaN(payoutsSplitNum)) payload.payouts_split = payoutsSplitNum;
+     if (orderingNum !== null && !Number.isNaN(orderingNum)) payload.ordering = orderingNum;
      try {
-        await updateTeamMember(project.team, userId, newRole, token);
+        setSavingMemberId(userId);
+        await updateTeamMember(project.team, userId, payload, token);
         await loadData();
-     } catch(e) { alert('Failed to update role'); }
+     } catch(e) { alert('Failed to update member'); }
+     finally { setSavingMemberId(null); }
+  };
+
+  const handleJoinTeam = async () => {
+    if (!project) return;
+    try {
+      await joinTeam(project.team, token);
+      await loadData();
+    } catch (e: any) {
+      alert(e.message || 'Failed to join team');
+    }
+  };
+
+  const openTransferOwnership = (userId: string, name: string) => {
+    setTransferCandidate({ id: userId, name });
+  };
+
+  const handleTransferOwnership = async () => {
+    if (!project || !transferCandidate) return;
+    try {
+      await transferTeamOwnership(project.team, transferCandidate.id, token);
+      await loadData();
+    } catch (e: any) {
+      alert(e.message || 'Failed to transfer ownership');
+    }
+    setTransferCandidate(null);
   };
 
   const handleInvite = async (userId: string) => {
@@ -1429,23 +1624,33 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
                                 <div className="flex flex-col items-end gap-2">
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setVersionMenuId(prev => prev === v.id ? null : v.id); }}
-                                    className="p-1.5 rounded-full text-zinc-500 hover:text-modrinth-green hover:bg-modrinth-bg transition-colors"
+                                    className={`p-1.5 rounded-full transition-colors ${
+                                      theme === 'light'
+                                        ? 'text-black/50 hover:text-black hover:bg-black/5'
+                                        : 'text-zinc-500 hover:text-modrinth-green hover:bg-modrinth-bg'
+                                    }`}
                                   >
                                     <MoreVertical size={14} />
                                   </button>
                                   {versionMenuId === v.id && (
                                     <div
-                                      className="absolute top-10 right-2 z-30 bg-modrinth-card/90 backdrop-blur-xl rounded-2xl shadow-[0_12px_30px_rgba(0,0,0,0.4)] text-[11px] overflow-hidden animate-fade-in-up min-w-[140px]"
+                                      className={`absolute top-10 right-2 z-30 rounded-2xl text-[11px] overflow-hidden animate-fade-in-up min-w-[140px] ${
+                                        theme === 'light'
+                                          ? 'bg-white/95 border border-black/10 shadow-[0_12px_30px_rgba(0,0,0,0.2)] backdrop-blur-xl'
+                                          : 'bg-modrinth-card shadow-[0_12px_30px_rgba(0,0,0,0.6)]'
+                                      }`}
                                       onClick={e => e.stopPropagation()}
                                     >
                                       <button
-                                        className="relative w-full px-3 py-2 text-left text-modrinth-text hover:bg-modrinth-bg flex items-center gap-1.5"
+                                        className={`relative w-full px-3 py-2 text-left flex items-center gap-1.5 ${
+                                          theme === 'light' ? 'text-black hover:bg-black/5' : 'text-modrinth-text hover:bg-modrinth-bg'
+                                        }`}
                                         onClick={() => { setVersionMenuId(null); openEditVersion(v); }}
                                       >
                                         Edit
                                       </button>
                                       <button
-                                        className="relative w-full px-3 py-2 text-left text-red-400 hover:bg-red-500/10 border-t border-modrinth-border/20"
+                                        className={`relative w-full px-3 py-2 text-left text-red-400 hover:bg-red-500/10 ${theme === 'light' ? 'border-t border-black/10' : 'border-t border-modrinth-border/20'}`}
                                         onClick={() => { setVersionMenuId(null); handleDeleteVersion(v); }}
                                       >
                                         Delete
@@ -1535,9 +1740,21 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
                 <div className="bg-modrinth-card/75 backdrop-blur-xl p-5 rounded-3xl shadow-[0_10px_26px_rgba(0,0,0,0.22)] relative overflow-hidden">
                     <div className="grid grid-cols-3 gap-2 mb-4">
                         {project.gallery?.map((img, idx) => (
-                            <div key={idx} className="relative aspect-square rounded-lg overflow-hidden group bg-modrinth-bg">
+                            <div
+                              key={idx}
+                              className="relative aspect-square rounded-lg overflow-hidden group bg-modrinth-bg cursor-zoom-in"
+                              onClick={() => setGalleryPreviewUrl(img.url)}
+                            >
                                 <img src={img.url} className="w-full h-full object-cover" />
-                                <button onClick={()=>handleDeleteGallery(img.url)} className="absolute top-1 right-1 bg-black/50 p-1 rounded text-white opacity-0 group-hover:opacity-100 transition-opacity"><X size={12}/></button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteGallery(img.url);
+                                  }}
+                                  className="absolute top-1 right-1 bg-black/50 p-1 rounded text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X size={12}/>
+                                </button>
                             </div>
                         ))}
                     </div>
@@ -1611,16 +1828,99 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
                     {member.role === 'Owner' ? (
                        <span className="text-xs text-modrinth-green font-bold px-2 py-1 bg-modrinth-bg rounded-lg">Owner</span>
                     ) : (
-                       <select 
-                          value={member.role} 
-                          onChange={(e) => handleRoleChange(member.user.id, e.target.value)}
-                          className="bg-modrinth-bg text-modrinth-text text-xs font-bold px-2 py-1 rounded-lg border border-modrinth-border outline-none focus:border-modrinth-green"
-                       >
-                         <option value="Maintainer">Maintainer</option>
-                         <option value="Contributor">Contributor</option>
-                       </select>
+                      <>
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={memberEdits[member.user.id]?.role || ''}
+                            onChange={(e) => setMemberEdits(prev => ({ ...prev, [member.user.id]: { ...(prev[member.user.id] || { role: '' }), role: e.target.value, permissions: prev[member.user.id]?.permissions || '', payouts_split: prev[member.user.id]?.payouts_split || '', ordering: prev[member.user.id]?.ordering || '' } }))}
+                            className="bg-modrinth-bg text-modrinth-text text-xs font-bold px-2 py-1 rounded-lg border border-modrinth-border outline-none focus:border-modrinth-green w-36"
+                            placeholder={t('custom_role_placeholder')}
+                          />
+                          <button
+                            onClick={() => handleRoleSave(member.user.id)}
+                            className="text-xs font-bold px-2 py-1 rounded-lg bg-modrinth-green/20 text-modrinth-green hover:bg-modrinth-green hover:text-white transition-colors"
+                            disabled={savingMemberId === member.user.id}
+                          >
+                            {savingMemberId === member.user.id ? '...' : t('save')}
+                          </button>
+                        </div>
+                      </>
                     )}
                  </div>
+
+                 {member.role !== 'Owner' && (
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="col-span-2">
+                      <label className="block text-[10px] font-bold uppercase text-modrinth-muted mb-1">{t('permissions_label')}</label>
+                      <div className="bg-modrinth-bg/60 border border-modrinth-border rounded-xl p-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          {permissionDefs.map(p => {
+                            const currentRaw = memberEdits[member.user.id]?.permissions;
+                            const currentVal = currentRaw !== '' && currentRaw !== undefined ? Number(currentRaw) : (member.permissions || 0);
+                            const isOn = !!(currentVal & (1 << p.bit));
+                            return (
+                              <button
+                                key={p.bit}
+                                type="button"
+                                onClick={() => {
+                                  const nextVal = isOn ? (currentVal & ~(1 << p.bit)) : (currentVal | (1 << p.bit));
+                                  setMemberEdits(prev => ({
+                                    ...prev,
+                                    [member.user.id]: {
+                                      ...(prev[member.user.id] || { role: member.role || '' }),
+                                      permissions: String(nextVal),
+                                      payouts_split: prev[member.user.id]?.payouts_split || '',
+                                      ordering: prev[member.user.id]?.ordering || ''
+                                    }
+                                  }));
+                                }}
+                                className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg border transition-colors ${isOn ? 'bg-modrinth-green/20 text-modrinth-text border-modrinth-green/60' : 'bg-modrinth-bg text-modrinth-muted border-modrinth-border hover:border-modrinth-green'}`}
+                              >
+                                {isOn ? <Check size={12} /> : <span className="inline-block w-3" />}
+                                <span className="truncate">{p.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-modrinth-muted mb-1">{t('payouts_split_label')}</label>
+                      <input
+                        value={memberEdits[member.user.id]?.payouts_split || ''}
+                        onChange={(e) => setMemberEdits(prev => ({ ...prev, [member.user.id]: { ...(prev[member.user.id] || { role: member.role || '' }), payouts_split: e.target.value, permissions: prev[member.user.id]?.permissions || '', ordering: prev[member.user.id]?.ordering || '' } }))}
+                        className="w-full bg-modrinth-bg text-modrinth-text text-xs px-2 py-1.5 rounded-lg border border-modrinth-border outline-none focus:border-modrinth-green"
+                        placeholder="e.g. 50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-modrinth-muted mb-1">{t('ordering_label')}</label>
+                      <input
+                        value={memberEdits[member.user.id]?.ordering || ''}
+                        onChange={(e) => setMemberEdits(prev => ({ ...prev, [member.user.id]: { ...(prev[member.user.id] || { role: member.role || '' }), ordering: e.target.value, permissions: prev[member.user.id]?.permissions || '', payouts_split: prev[member.user.id]?.payouts_split || '' } }))}
+                        className="w-full bg-modrinth-bg text-modrinth-text text-xs px-2 py-1.5 rounded-lg border border-modrinth-border outline-none focus:border-modrinth-green"
+                        placeholder="e.g. 0"
+                      />
+                    </div>
+                    <div className="flex items-end col-span-2">
+                      <button
+                        onClick={() => openTransferOwnership(member.user.id, member.user.username)}
+                        className="w-full text-xs font-bold px-2 py-2 rounded-lg bg-modrinth-bg text-modrinth-muted hover:text-modrinth-text hover:border-modrinth-green border border-modrinth-border"
+                      >
+                        {t('transfer_owner')}
+                      </button>
+                    </div>
+                  </div>
+                 )}
+
+                 {member.user.id === currentUserId && member.accepted === false && (
+                   <button
+                     onClick={handleJoinTeam}
+                     className="text-xs font-bold px-3 py-2 rounded-xl bg-modrinth-green text-white"
+                   >
+                     {t('accept_invite')}
+                   </button>
+                 )}
               </div>
             ))}
           </div>
@@ -1631,15 +1931,65 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
       })()}
       <InviteMemberModal isOpen={showInviteModal} onClose={()=>setShowInviteModal(false)} onInvite={handleInvite} />
 
+      {transferCandidate && (
+        <div className="fixed inset-0 z-[190] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-modrinth-card/90 backdrop-blur-xl w-full max-w-sm rounded-3xl p-5 shadow-[0_14px_36px_rgba(0,0,0,0.45)] border border-modrinth-border">
+            <h3 className="text-lg font-bold text-modrinth-text mb-2">{t('transfer_owner_title')}</h3>
+            <p className="text-sm text-modrinth-muted mb-4">
+              {t('transfer_owner_desc')} <span className="text-modrinth-text font-bold">{transferCandidate.name}</span>
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setTransferCandidate(null)}
+                className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-modrinth-bg/60 text-modrinth-muted hover:text-modrinth-text"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                onClick={handleTransferOwnership}
+                className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-modrinth-green text-white"
+              >
+                {t('transfer_owner_confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {galleryPreviewUrl && (
+        <div
+          className="fixed inset-0 z-[190] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setGalleryPreviewUrl(null)}
+        >
+          <div
+            className="relative w-full max-w-[95vw] max-h-[85vh] bg-modrinth-card/90 border border-modrinth-border rounded-2xl p-3 shadow-[0_20px_60px_rgba(0,0,0,0.6)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setGalleryPreviewUrl(null)}
+              className="absolute -top-3 -right-3 bg-black/70 text-white p-2 rounded-full shadow-lg"
+              aria-label="Close preview"
+            >
+              <X size={16}/>
+            </button>
+            <img
+              src={galleryPreviewUrl}
+              alt="Gallery preview"
+              className="w-full h-full max-h-[75vh] object-contain rounded-xl bg-modrinth-bg"
+            />
+          </div>
+        </div>
+      )}
+
       {editingVersion && (
-        <div className="fixed inset-0 z-[180] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-modrinth-card/85 backdrop-blur-xl w-full max-w-sm rounded-3xl p-5 animate-fade-in-up shadow-[0_14px_36px_rgba(0,0,0,0.45)] relative overflow-hidden">
+        <div className={`fixed inset-0 z-[180] ${theme === 'light' ? 'bg-black/30' : 'bg-black/60'} backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in`}>
+          <div className={`${theme === 'light' ? 'bg-white/95 border border-black/10 shadow-[0_14px_36px_rgba(0,0,0,0.2)]' : 'bg-modrinth-card/85 shadow-[0_14px_36px_rgba(0,0,0,0.45)]'} backdrop-blur-xl w-full max-w-sm rounded-3xl p-5 animate-fade-in-up relative overflow-hidden`}>
             <div className="relative">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-modrinth-text">Edit version</h3>
               <button
                 onClick={() => setEditingVersion(null)}
-                className="p-2 rounded-full hover:bg-modrinth-bg text-modrinth-muted hover:text-modrinth-text"
+                className={theme === 'light' ? 'p-2 rounded-full hover:bg-black/5 text-black/60 hover:text-black transition-colors' : 'p-2 rounded-full hover:bg-modrinth-bg text-modrinth-muted hover:text-modrinth-text'}
               >
                 <X size={18} />
               </button>
@@ -1649,7 +1999,7 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
               <div>
                 <label className="block text-xs font-bold text-modrinth-muted uppercase mb-1">Name</label>
                 <input
-                  className="w-full bg-modrinth-bg rounded-2xl p-3 text-sm text-modrinth-text outline-none shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] focus:shadow-[inset_0_0_0_1px_rgba(74,222,128,0.45)]"
+                  className={`w-full rounded-2xl p-3 text-sm outline-none ${theme === 'light' ? 'bg-black/[0.04] text-black border border-black/10 focus:border-modrinth-green' : 'bg-modrinth-bg text-modrinth-text shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] focus:shadow-[inset_0_0_0_1px_rgba(74,222,128,0.45)]'}`}
                   value={editingVersionName}
                   onChange={e => setEditingVersionName(e.target.value)}
                 />
@@ -1658,7 +2008,7 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
               <div>
                 <label className="block text-xs font-bold text-modrinth-muted uppercase mb-1">Type</label>
                 <select
-                  className="w-full bg-modrinth-bg rounded-2xl p-3 text-sm text-modrinth-text outline-none shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] focus:shadow-[inset_0_0_0_1px_rgba(74,222,128,0.45)]"
+                  className={`w-full rounded-2xl p-3 text-sm outline-none ${theme === 'light' ? 'bg-black/[0.04] text-black border border-black/10 focus:border-modrinth-green' : 'bg-modrinth-bg text-modrinth-text shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] focus:shadow-[inset_0_0_0_1px_rgba(74,222,128,0.45)]'}`}
                   value={editingVersionType}
                   onChange={e => setEditingVersionType(e.target.value as any)}
                 >
@@ -1671,7 +2021,7 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
               <div>
                 <label className="block text-xs font-bold text-modrinth-muted uppercase mb-1">Changelog</label>
                 <textarea
-                  className="w-full bg-modrinth-bg rounded-2xl p-3 text-xs text-modrinth-text outline-none h-24 resize-none shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),inset_0_0_0_2px_rgba(0,0,0,0.22)] focus:shadow-[inset_0_0_0_1px_rgba(74,222,128,0.35),inset_0_0_0_2px_rgba(0,0,0,0.22)]"
+                  className={`w-full rounded-2xl p-3 text-xs outline-none h-24 resize-none ${theme === 'light' ? 'bg-black/[0.04] text-black border border-black/10 focus:border-modrinth-green' : 'bg-modrinth-bg text-modrinth-text shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),inset_0_0_0_2px_rgba(0,0,0,0.22)] focus:shadow-[inset_0_0_0_1px_rgba(74,222,128,0.35),inset_0_0_0_2px_rgba(0,0,0,0.22)]'}`}
                   value={editingVersionChangelog}
                   onChange={e => setEditingVersionChangelog(e.target.value)}
                 />
@@ -1687,7 +2037,7 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
                         key={gv}
                         type="button"
                         onClick={() => setEditingVersionGameVersions(prev => prev.includes(gv) ? prev.filter(x => x !== gv) : [...prev, gv])}
-                        className={`px-2 py-1 rounded-full text-[10px] ${active ? 'bg-modrinth-green/20 text-modrinth-text shadow-[inset_0_0_0_1px_rgba(74,222,128,0.45),inset_0_0_0_2px_rgba(0,0,0,0.22)]' : 'bg-modrinth-bg text-modrinth-muted shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),inset_0_0_0_2px_rgba(0,0,0,0.22)]'}`}
+                        className={`px-2 py-1 rounded-full text-[10px] ${active ? 'bg-modrinth-green/20 text-modrinth-text shadow-[inset_0_0_0_1px_rgba(74,222,128,0.45),inset_0_0_0_2px_rgba(0,0,0,0.22)]' : theme === 'light' ? 'bg-black/5 text-black/60 border border-black/10' : 'bg-modrinth-bg text-modrinth-muted shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),inset_0_0_0_2px_rgba(0,0,0,0.22)]'}`}
                       >
                         {gv}
                       </button>
@@ -1702,9 +2052,9 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
                   {editingVersionDependencies.map((dep, idx) => {
                     const meta = deps.find(d => d.project_id && d.project_id === dep.project_id);
                     return (
-                      <div key={idx} className="flex items-center justify-between bg-modrinth-bg rounded-2xl px-3 py-1.5 text-[11px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),inset_0_0_0_2px_rgba(0,0,0,0.22)]">
+                      <div key={idx} className={`flex items-center justify-between rounded-2xl px-3 py-1.5 text-[11px] ${theme === 'light' ? 'bg-black/5 border border-black/10' : 'bg-modrinth-bg shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),inset_0_0_0_2px_rgba(0,0,0,0.22)]'}`}>
                         <div className="flex items-center gap-2 mr-2 min-w-0">
-                          <div className="w-7 h-7 rounded-lg bg-modrinth-card overflow-hidden flex-shrink-0 flex items-center justify-center shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),inset_0_0_0_2px_rgba(0,0,0,0.22)]">
+                          <div className={`w-7 h-7 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center ${theme === 'light' ? 'bg-white border border-black/10' : 'bg-modrinth-card shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),inset_0_0_0_2px_rgba(0,0,0,0.22)]'}`}>
                             {meta?.icon_url ? (
                               <img src={meta.icon_url} className="w-full h-full object-cover" />
                             ) : (
@@ -1716,7 +2066,7 @@ const ProjectDetail: React.FC<{ token: string }> = ({ token }) => {
                             <div className="flex items-center gap-1 mt-0.5">
                               <span className="text-[10px] text-modrinth-muted uppercase">Type:</span>
                               <select
-                                className="bg-modrinth-bg rounded-lg px-2 py-0.5 text-[10px] text-modrinth-text outline-none shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),inset_0_0_0_2px_rgba(0,0,0,0.22)]"
+                                className={`rounded-lg px-2 py-0.5 text-[10px] outline-none ${theme === 'light' ? 'bg-white text-black border border-black/10' : 'bg-modrinth-bg text-modrinth-text shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),inset_0_0_0_2px_rgba(0,0,0,0.22)]'}`}
                                 value={dep.dependency_type}
                                 onChange={e => {
                                   const val = e.target.value as 'required' | 'optional' | 'incompatible' | 'embedded';
@@ -2542,8 +2892,13 @@ const App: React.FC = () => {
           setAuthState(prev => ({ ...prev, user, isLoading: false, error: null }));
         } catch (err) {
           console.error(err);
-          setAuthState(prev => ({ ...prev, isLoading: false, error: 'Invalid Token', token: null }));
-          localStorage.removeItem('modrinth_token');
+          const status = (err as any)?.status;
+          if (status === 401 || status === 403) {
+            setAuthState(prev => ({ ...prev, isLoading: false, error: 'Invalid Token', token: null }));
+            localStorage.removeItem('modrinth_token');
+          } else {
+            setAuthState(prev => ({ ...prev, isLoading: false, error: 'Network error. Try again.' }));
+          }
         }
        }
     };
@@ -2557,7 +2912,12 @@ const App: React.FC = () => {
       localStorage.setItem('modrinth_token', token);
       setAuthState({ ...authState, token, user, isLoading: false, error: null });
     } catch (err) {
-      setAuthState(prev => ({ ...prev, isLoading: false, error: 'Invalid Token or Network Error' }));
+      const status = (err as any)?.status;
+      if (status === 401 || status === 403) {
+        setAuthState(prev => ({ ...prev, isLoading: false, error: 'Invalid Token' }));
+      } else {
+        setAuthState(prev => ({ ...prev, isLoading: false, error: 'Network error. Try again.' }));
+      }
     }
   };
 
@@ -2594,6 +2954,7 @@ const App: React.FC = () => {
               isLoading={authState.isLoading} 
               error={authState.error} 
               onShowHelp={() => setShowHelp(true)}
+              savedToken={authState.token}
            />
            {showHelp && <TokenHelpModal onClose={() => setShowHelp(false)} />}
          </>
@@ -2606,7 +2967,7 @@ const App: React.FC = () => {
         <div className="min-h-screen bg-modrinth-bg text-modrinth-text font-sans selection:bg-modrinth-green/30">
            <Routes>
               <Route path="/" element={<MainLayout user={authState.user} token={authState.token} onLogout={handleLogout} updateInfo={latestRelease} />} />
-              <Route path="/project/:id" element={<ProjectDetail token={authState.token} />} />
+              <Route path="/project/:id" element={<ProjectDetail token={authState.token} currentUserId={authState.user?.id} />} />
            </Routes>
         </div>
       </HashRouter>

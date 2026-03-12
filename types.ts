@@ -129,8 +129,10 @@ export interface ModrinthProject {
 export interface ProjectMember {
   user: ModrinthUser;
   team_id: string;
-  role: 'Owner' | 'Maintainer' | 'Contributor' | 'Translator';
+  role: string;
   permissions?: number;
+  payouts_split?: number;
+  ordering?: number;
   accepted: boolean;
 }
 
