@@ -59,17 +59,16 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick }) => {
       onClick={() => onClick(project.id)}
       className="bg-modrinth-card/75 backdrop-blur-xl rounded-3xl p-4 mb-4 active:scale-[0.985] transition-all duration-300 cursor-pointer shadow-[0_10px_28px_rgba(0,0,0,0.28)] hover:shadow-[0_14px_36px_rgba(0,0,0,0.34)] group relative overflow-hidden"
     >
-
       <div className="flex items-start justify-between mb-3 relative z-10">
         <div className="flex items-center gap-3 overflow-hidden flex-1">
-          <div className="w-14 h-14 rounded-2xl bg-modrinth-bg overflow-hidden flex-shrink-0 border border-modrinth-border/70">
-            {project.icon_url ? (
-              <img src={project.icon_url} alt={project.title} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-modrinth-card to-modrinth-bg text-modrinth-muted font-bold text-xl">
-                {project.title.charAt(0).toUpperCase()}
-              </div>
-            )}
+          <div className="w-14 h-14 rounded-2xl bg-modrinth-bg overflow-hidden flex-shrink-0">
+          {project.icon_url ? (
+            <img src={project.icon_url} alt={project.title} className="w-full h-full object-cover object-center scale-[1.02]" loading="lazy" decoding="async" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-modrinth-card to-modrinth-bg text-modrinth-muted font-bold text-xl">
+              {project.title.charAt(0).toUpperCase()}
+            </div>
+          )}
           </div>
           <div className="min-w-0 flex-1 pr-2">
             <h3 className="font-bold text-modrinth-text text-lg leading-tight truncate group-hover:text-modrinth-green transition-colors">
@@ -80,7 +79,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick }) => {
             </p>
           </div>
         </div>
-        
+
         <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm ${status.color}`}>
           <StatusIcon size={10} />
           {status.label}
@@ -88,11 +87,15 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick }) => {
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); setShowMenu(v => !v); }}
-          className="ml-2 p-2 rounded-full text-zinc-500 hover:text-modrinth-green hover:bg-modrinth-bg/60 transition-colors"
+          className="ml-2 p-2.5 rounded-full text-zinc-300 hover:text-modrinth-green hover:bg-modrinth-bg/60 transition-colors"
         >
-          <MoreVertical size={16} />
+          <MoreVertical size={20} strokeWidth={2.75} />
         </button>
       </div>
+
+      <p className="text-sm text-modrinth-text/80 line-clamp-2 mb-4 leading-relaxed min-h-[2.5em] relative z-10">
+        {summary}
+      </p>
 
       {showMenu && (
         <div
@@ -118,11 +121,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick }) => {
         </div>
       )}
 
-      <p className="text-sm text-modrinth-text/80 line-clamp-2 mb-4 leading-relaxed min-h-[2.5em] relative z-10">
-        {summary}
-      </p>
-
-      <div className="flex items-center justify-between text-xs text-modrinth-muted border-t border-modrinth-border/40 pt-3 relative z-10">
+      <div className="flex items-center justify-between text-xs text-modrinth-muted border-t border-zinc-700/60 pt-3 relative z-10">
         <div className="flex gap-5">
           <div className="flex items-center gap-1.5 group/stat">
             <Download size={14} className="text-zinc-500 group-hover/stat:text-modrinth-green transition-colors" />
@@ -139,4 +138,4 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick }) => {
   );
 };
 
-export default ProjectCard;
+export default React.memo(ProjectCard);

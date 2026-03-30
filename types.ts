@@ -1,4 +1,6 @@
 
+import type { Language as AppLanguage } from './locales';
+
 export interface ModrinthUser {
   id: string;
   username: string;
@@ -164,7 +166,7 @@ export interface AuthState {
 }
 
 export type ThemeMode = 'dark' | 'light';
-export type Language = 'ru' | 'en';
+export type Language = AppLanguage;
 
 export interface SettingsContextType {
   theme: ThemeMode;

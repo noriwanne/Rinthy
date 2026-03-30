@@ -3,15 +3,13 @@
 declare const __APP_VERSION__: string;
 import { HashRouter, Routes, Route, useNavigate, useParams, Outlet, useLocation } from 'react-router-dom';
 import { App as CapApp } from '@capacitor/app';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
-import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import { Loader2, LogOut, ArrowLeft, Save, ExternalLink, BarChart2, ShieldCheck, Key, ChevronRight, Download, Activity, BookOpen, FileText, Monitor, Server, Edit3, Globe, Wallet, DollarSign, TrendingUp, Archive, Lock, EyeOff, Info, Heart, Clock, Users, Trash2, Moon, Sun, Smartphone, UserPlus, Search, X, Check, ChevronDown, Bell, AlertTriangle, Image as ImageIcon, Upload, Package, Calendar, File as FileIcon, Layers, MousePointerClick, CheckCheck, RefreshCw, MoreVertical } from 'lucide-react';
 import { fetchCurrentUser, fetchUserProjects, fetchProject, updateProject, fetchProjectMembers, deleteTeamMember, updateTeamMember, searchUser, addTeamMember, modifyUser, fetchNotifications, deleteNotification, markNotificationRead, markMultipleNotificationsRead, changeProjectIcon, deleteProjectIcon, addGalleryImage, deleteGalleryImage, fetchProjectDependencies, fetchProjectVersions, fetchGameVersionTags, fetchLoaderTags, modifyVersion, deleteVersionById, fetchUserPayoutHistoryWithStatus, fetchUserByIdWithStatus, fetchPayoutBalanceV3WithStatus, joinTeam, transferTeamOwnership } from './services/modrinthService';
 import { AuthState, ModrinthUser, ModrinthProject, NavTab, ProjectMember, SettingsContextType, ThemeMode, Language, UserSearchResult, ModifyUserPayload, ModrinthNotification, ProjectDependency, ModrinthVersion, ModrinthPayoutHistory } from './types';
 import ProjectCard from './components/ProjectCard';
 import BottomNav from './components/BottomNav';
+import { DEFAULT_LANGUAGE, isSupportedLanguage, LANGUAGE_OPTIONS, TRANSLATIONS } from './locales';
+const MarkdownRenderer = React.lazy(() => import('./components/MarkdownRenderer'));
 
 // --- Back Button Handler for Android ---
 const BackButtonHandler: React.FC = () => {
@@ -77,7 +75,7 @@ const generateOAuthState = () => {
 
 const getStoredLanguage = (): Language => {
   const raw = localStorage.getItem('language');
-  return raw === 'ru' ? 'ru' : 'en';
+  return raw && isSupportedLanguage(raw) ? raw : DEFAULT_LANGUAGE;
 };
 
 const getAuthMessage = (key: 'oauth_missing_token' | 'oauth_cancelled' | 'oauth_state_error' | 'oauth_backend_unavailable'): string => {
@@ -154,468 +152,6 @@ const ModrinthLogo = ({ className }: { className?: string }) => (
     className={className}
   />
 );
-
-const isWhitespaceOnly = (value: React.ReactNode) => typeof value === 'string' && value.trim().length === 0;
-
-const isMultiInlineMediaParagraphNode = (node: any): boolean => {
-  const children = Array.isArray(node?.children) ? node.children : [];
-  const meaningfulChildren = children.filter((child: any) => !(child?.type === 'text' && String(child?.value || '').trim().length === 0));
-
-  if (meaningfulChildren.length <= 1) return false;
-
-  const allInlineMedia = meaningfulChildren.every((child: any) => {
-    if (child?.type !== 'element') return false;
-
-    if (child.tagName === 'img') return true;
-
-    if (child.tagName === 'a') {
-      const linkChildren = Array.isArray(child.children) ? child.children : [];
-      const meaningfulLinkChildren = linkChildren.filter((linkChild: any) => !(linkChild?.type === 'text' && String(linkChild?.value || '').trim().length === 0));
-      return meaningfulLinkChildren.length > 0 && meaningfulLinkChildren.every((linkChild: any) => linkChild?.type === 'element' && linkChild.tagName === 'img');
-    }
-
-    return false;
-  });
-
-  return allInlineMedia;
-};
-
-const MarkdownRenderer: React.FC<{ content: string; className?: string }> = ({ content, className }) => (
-  <div className={className}>
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[
-        rehypeRaw,
-        [
-          rehypeSanitize,
-          {
-            ...defaultSchema,
-            tagNames: [
-              ...(defaultSchema.tagNames || []),
-              'details',
-              'summary',
-              'kbd',
-              'sub',
-              'sup',
-              'del',
-              'ins',
-              'center',
-              'iframe'
-            ],
-            attributes: {
-              ...defaultSchema.attributes,
-              a: [...(defaultSchema.attributes?.a || []), ['target', '_blank'], ['rel', 'noopener noreferrer']],
-              img: [...(defaultSchema.attributes?.img || []), 'loading'],
-              code: [...(defaultSchema.attributes?.code || []), 'className'],
-              th: [...(defaultSchema.attributes?.th || []), 'align'],
-              td: [...(defaultSchema.attributes?.td || []), 'align'],
-              div: [...(defaultSchema.attributes?.div || []), 'align'],
-              iframe: [
-                'src',
-                'width',
-                'height',
-                'title',
-                'allow',
-                'allowfullscreen',
-                'frameborder'
-              ]
-            },
-            protocols: {
-              ...defaultSchema.protocols,
-              href: ['http', 'https', 'mailto'],
-              src: ['http', 'https']
-            }
-          }
-        ]
-      ]}
-      components={{
-        p: ({ node, children }) => {
-          if (isMultiInlineMediaParagraphNode(node)) {
-            return <p className="markdown-inline-media">{children}</p>;
-          }
-          return <p>{children}</p>;
-        },
-        a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
-        center: ({ node: _node, children }) => <div className="markdown-center">{children}</div>,
-        img: ({ node: _node, ...props }) => <img {...props} loading="lazy" alt={props.alt || ''} />,
-        iframe: ({ node: _node, src, ...props }) => {
-          const allowed =
-            typeof src === 'string' &&
-            /^(https:\/\/(www\.)?youtube\.com\/embed\/|https:\/\/youtube\.com\/embed\/|https:\/\/www\.youtube-nocookie\.com\/embed\/|https:\/\/discord\.com\/widget\?)/i.test(src);
-
-          if (!allowed) return null;
-
-          return <iframe src={src} loading="lazy" referrerPolicy="no-referrer" {...props} />;
-        },
-        code: ({ node: _node, className: codeClassName, children, ...props }) => (
-          <code className={codeClassName} {...props}>
-            {children}
-          </code>
-        )
-      }}
-    >
-      {content}
-    </ReactMarkdown>
-  </div>
-);
-
-// --- Translations ---
-const TRANSLATIONS = {
-  ru: {
-    welcome_title: 'Добро пожаловать в Rinthy',
-    welcome_subtitle: 'Выбери язык интерфейса, затем войди через Modrinth OAuth.',
-    choose_language: 'Язык',
-    continue: 'Продолжить',
-    onboarding_title: 'Rinthy',
-    onboarding_desc: 'Неофициальное приложение для Modrinth для разработчиков.\nУправляй проектами, смотри аналитику и выплаты.',
-    onboarding_secure_title: 'Безопасно',
-    onboarding_secure_desc: 'OAuth токен хранится локально на устройстве.\nПрямое подключение к Modrinth API.',
-    onboarding_access_title: 'Доступ',
-    onboarding_access_desc: 'Основной вход через Modrinth OAuth.\nPAT можно использовать как запасной вариант.',
-    next: 'Далее',
-    start: 'Начать',
-    login_title: 'Вход',
-    login_subtitle: 'Войди через Modrinth или используй PAT как запасной вариант',
-    authorize: 'Войти по PAT',
-    oauth_continue: 'Войти через Modrinth',
-    oauth_loading: 'Ожидание входа...',
-    use_pat_instead: 'Использовать PAT',
-    hide_pat: 'Скрыть PAT',
-    how_to_get_token: 'Как получить PAT?',
-    token_help_title: 'PAT как запасной вход',
-    token_help_open: 'Открой',
-    token_help_create: 'Создай новый Personal Access Token (PAT).',
-    token_help_scopes: 'Выдай только нужные права или временно используй все галочки.',
-    token_help_paste: 'Скопируй токен и вставь сюда.',
-    token_help_local: 'Безопасность: токен хранится локально на устройстве.',
-    oauth_state_error: 'Ошибка входа: state не совпадает.',
-    oauth_missing_token: 'OAuth не вернул токен.',
-    oauth_cancelled: 'Вход через Modrinth был отменён.',
-    oauth_backend_unavailable: 'Сервер авторизации недоступен. Попробуй позже или войди через PAT.',
-    got_it: 'Понял',
-    dashboard: 'Проекты',
-    analytics: 'Аналитика',
-    settings: 'Настройки',
-    dev_panel: 'Панель разработчика',
-    no_projects: 'Нет активных проектов',
-    create_project: 'Создайте проект на сайте Modrinth',
-    overview: 'Обзор',
-    editor: 'Редактор',
-    edit: 'Редактирование',
-    members: 'Команда',
-    versions: 'Версии',
-    downloads: 'Загрузки',
-    likes: 'Лайки',
-    summary: 'Краткое описание',
-    description: 'Описание',
-    no_summary: 'Краткое описание отсутствует.',
-    no_description: 'Полное описание отсутствует.',
-    client: 'Клиент',
-    server: 'Сервер',
-    resources: 'Ресурсы',
-    source: 'Исходный код',
-    issues: 'Баг-трекер',
-    save: 'Сохранить',
-    saved: 'Сохранено успешно!',
-    main_info: 'Основное',
-    title: 'Название',
-    short_desc: 'Краткое описание',
-    body_desc: 'Тело описания (Markdown)',
-    status_license: 'Статус и Лицензия',
-    status: 'Текущий статус',
-    change_status: 'Изменить статус',
-    license_id: 'License ID',
-    links: 'Ссылки',
-    total_revenue: 'Всего заработано',
-    wallet: 'Кошелек',
-    balance: 'Баланс',
-    total_downloads: 'Всего загрузок',
-    total_likes: 'Всего лайков',
-    categories: 'Категории проектов',
-    top_projects: 'Топ проектов',
-    logout: 'Выйти из аккаунта',
-    web_settings: 'Настройки на сайте',
-    unofficial: 'Неофициальное приложение для Modrinth. Не связано с Modrinth и не поддерживается ими. Автор',
-    theme: 'Тема оформления',
-    language: 'Язык',
-    dark: 'Темная',
-    light: 'Светлая',
-    role: 'Роль',
-    remove: 'Удалить',
-    manage_members: 'Управление участниками',
-    member_remove_confirm: 'Удалить участника?',
-    permissions_label: 'Права',
-    payouts_split_label: 'Доля выплат (%)',
-    ordering_label: 'Порядок',
-    transfer_owner: 'Передать владельца',
-    accept_invite: 'Принять приглашение',
-    custom_role_placeholder: 'Своя роль',
-    user_not_found: 'Пользователь не найден. Проверьте никнейм.',
-    perm_upload_version: 'Заливать версии',
-    perm_delete_version: 'Удалять версии',
-    perm_edit_details: 'Править детали',
-    perm_edit_body: 'Править описание',
-    perm_manage_invites: 'Управлять инвайтами',
-    perm_remove_member: 'Удалять участника',
-    perm_edit_member: 'Править участника',
-    perm_delete_project: 'Удалять проект',
-    perm_view_analytics: 'Смотреть аналитику',
-    perm_view_payouts: 'Смотреть выплаты',
-    transfer_owner_title: 'Передать владельца?',
-    transfer_owner_confirm: 'Передать',
-    transfer_owner_desc: 'Вы передадите владение пользователю:',
-    invite: 'Пригласить',
-    search_user: 'Введите никнейм...',
-    edit_profile: 'Редактировать профиль',
-    cancel: 'Отмена',
-    bio: 'О себе',
-    avatar_url: 'Ссылка на аватар',
-    username: 'Никнейм',
-    profile_updated: 'Профиль обновлен!',
-    add: 'Добавить',
-    keep_current: 'Оставить текущий',
-    updating_role: 'Обновление роли...',
-    notifications: 'Уведомления',
-    no_notifications: 'Нет новых уведомлений',
-    create_wallet_msg: 'Создайте кошелек на Modrinth, чтобы получать выплаты.',
-    wallet_error: 'Кошелек не найден',
-    go_to_settings: 'Перейти в настройки',
-    gallery: 'Галерея',
-    icon: 'Иконка',
-    upload: 'Загрузить',
-    dependencies: 'Зависимости',
-    no_dependencies: 'Нет зависимостей',
-    release: 'Релиз',
-    beta: 'Бета',
-    alpha: 'Альфа',
-    no_versions: 'Версий пока нет',
-    game_versions: 'Версии игры',
-    loaders: 'Загрузчики',
-    popularity: 'Популярность',
-    sort_by: 'Сортировка',
-    recently_updated: 'Недавно обновлённые',
-    follows_sort: 'По подпискам',
-    alphabetical: 'По алфавиту',
-    read_all: 'Прочитать все',
-    show_more_versions: 'Показать версии',
-    hide_versions: 'Скрыть версии',
-    mark_group_as_read: 'Прочитать',
-    received_label: 'Получено',
-    project_updated_group: 'Проект, на который вы подписаны, был обновлён',
-    press_back_again: 'Нажмите назад ещё раз для выхода',
-    accent_color: 'Основной цвет',
-    reset: 'Сбросить',
-    show_preview: 'Показать превью',
-    hide_preview: 'Скрыть превью',
-    payouts: 'Выплаты',
-    available: 'Доступно сейчас',
-    last_30_days: 'Последние 30 дней',
-    all_time: 'За всё время',
-    recent_transactions: 'Последние транзакции',
-    no_payout_transactions: 'Нет транзакций по выплатам',
-    token_no_payouts_access: 'У токена нет доступа к выплатам. Создай новый с правом payouts.',
-    payouts_endpoint_unavailable: 'История выплат недоступна (404). Это может означать отсутствие доступа (нужен scope PAYOUTS_READ) или недоступность ресурса. Баланс кошелька может отображаться отдельно.',
-    payouts_api_unavailable: 'История выплат недоступна: этот endpoint отсутствует в публичном API (route does not exist). Открой Revenue на сайте Modrinth для просмотра транзакций.',
-    open_revenue_page: 'Открыть Revenue',
-    open_payout_settings: 'Настройки выплат',
-    pending: 'В ожидании',
-    withdrawn: 'Выведено',
-    payout_data_unavailable: 'Данные о выплатах недоступны для этого токена/аккаунта.',
-    projects_label: 'Проекты',
-    total_label: 'Всего',
-    downloads_label: 'Загрузки',
-    follows_label: 'Подписки',
-    avg_label: 'Среднее',
-    downloads_per_project: 'Загрузок / проект',
-    no_top_projects: 'Нет данных по топ-проектам',
-    categories_overview: 'Категории',
-    update_available: 'Доступно обновление',
-    update_new_version: 'Новая версия',
-    update_current: 'Текущая версия',
-    update_download: 'Скачать',
-    update_later: 'Позже',
-    update_whats_new: 'Что нового',
-    update_outdated: 'Версия устарела',
-    update_view_release: 'Открыть релиз'
-  },
-  en: {
-    welcome_title: 'Welcome to Rinthy',
-    welcome_subtitle: 'Choose a language first, then sign in with Modrinth OAuth.',
-    choose_language: 'Language',
-    continue: 'Continue',
-    onboarding_title: 'Rinthy',
-    onboarding_desc: 'Unofficial app for Modrinth developers.\nManage projects, view analytics and payouts.',
-    onboarding_secure_title: 'Secure',
-    onboarding_secure_desc: 'The OAuth token is stored locally on your device.\nDirect connection to the Modrinth API.',
-    onboarding_access_title: 'Access',
-    onboarding_access_desc: 'Primary sign-in uses Modrinth OAuth.\nPAT remains available as a fallback.',
-    next: 'Next',
-    start: 'Start',
-    login_title: 'Login',
-    login_subtitle: 'Sign in with Modrinth or use a PAT as fallback',
-    authorize: 'Sign in with PAT',
-    oauth_continue: 'Continue with Modrinth',
-    oauth_loading: 'Waiting for sign-in...',
-    use_pat_instead: 'Use PAT instead',
-    hide_pat: 'Hide PAT',
-    how_to_get_token: 'How to get a PAT?',
-    token_help_title: 'PAT fallback sign-in',
-    token_help_open: 'Open',
-    token_help_create: 'Create a new Personal Access Token (PAT).',
-    token_help_scopes: 'Grant only the scopes you need, or temporarily use all scopes.',
-    token_help_paste: 'Copy the token and paste it here.',
-    token_help_local: 'Security: the token is stored locally on your device.',
-    oauth_state_error: 'Sign-in failed: state mismatch.',
-    oauth_missing_token: 'OAuth did not return a token.',
-    oauth_cancelled: 'Modrinth sign-in was cancelled.',
-    oauth_backend_unavailable: 'The auth backend is unavailable. Try again later or sign in with a PAT.',
-    got_it: 'Got it',
-    dashboard: 'Projects',
-    analytics: 'Analytics',
-    settings: 'Settings',
-    dev_panel: 'Developer Panel',
-    no_projects: 'No active projects',
-    create_project: 'Create a project on Modrinth',
-    overview: 'Overview',
-    editor: 'Editor',
-    edit: 'Edit',
-    members: 'Team',
-    versions: 'Versions',
-    downloads: 'Downloads',
-    likes: 'Follows',
-    summary: 'Summary',
-    description: 'Description',
-    no_summary: 'No summary available.',
-    no_description: 'No full description available.',
-    client: 'Client',
-    server: 'Server',
-    resources: 'Resources',
-    source: 'Source Code',
-    issues: 'Issue Tracker',
-    save: 'Save',
-    saved: 'Saved successfully!',
-    main_info: 'Main Info',
-    title: 'Title',
-    short_desc: 'Summary',
-    body_desc: 'Body (Markdown)',
-    status_license: 'Status & License',
-    status: 'Current Status',
-    change_status: 'Change Status',
-    license_id: 'License ID',
-    links: 'Links',
-    total_revenue: 'Lifetime Payouts',
-    wallet: 'Wallet',
-    balance: 'Balance',
-    total_downloads: 'Total Downloads',
-    total_likes: 'Total Follows',
-    categories: 'Project Categories',
-    top_projects: 'Top Projects',
-    logout: 'Log Out',
-    web_settings: 'Web Settings',
-    unofficial: 'Unofficial app for Modrinth. Not affiliated with or endorsed by Modrinth. by',
-    theme: 'Theme',
-    language: 'Language',
-    dark: 'Dark',
-    light: 'Light',
-    role: 'Role',
-    remove: 'Remove',
-    manage_members: 'Manage Members',
-    member_remove_confirm: 'Remove member?',
-    permissions_label: 'Permissions',
-    payouts_split_label: 'Payout split (%)',
-    ordering_label: 'Ordering',
-    transfer_owner: 'Transfer owner',
-    accept_invite: 'Accept invite',
-    custom_role_placeholder: 'Custom role',
-    user_not_found: 'User not found. Check the username.',
-    perm_upload_version: 'Upload versions',
-    perm_delete_version: 'Delete versions',
-    perm_edit_details: 'Edit details',
-    perm_edit_body: 'Edit body',
-    perm_manage_invites: 'Manage invites',
-    perm_remove_member: 'Remove member',
-    perm_edit_member: 'Edit member',
-    perm_delete_project: 'Delete project',
-    perm_view_analytics: 'View analytics',
-    perm_view_payouts: 'View payouts',
-    transfer_owner_title: 'Transfer ownership?',
-    transfer_owner_confirm: 'Transfer',
-    transfer_owner_desc: 'You will transfer ownership to:',
-    invite: 'Invite',
-    search_user: 'Enter username...',
-    edit_profile: 'Edit Profile',
-    cancel: 'Cancel',
-    bio: 'Bio',
-    avatar_url: 'Avatar URL',
-    username: 'Username',
-    profile_updated: 'Profile Updated!',
-    add: 'Add',
-    keep_current: 'Keep Current',
-    updating_role: 'Updating role...',
-    notifications: 'Notifications',
-    no_notifications: 'No new notifications',
-    create_wallet_msg: 'Create a wallet on Modrinth to receive payouts.',
-    wallet_error: 'Wallet Not Found',
-    go_to_settings: 'Go to Settings',
-    gallery: 'Gallery',
-    icon: 'Icon',
-    upload: 'Upload',
-    dependencies: 'Dependencies',
-    no_dependencies: 'No dependencies',
-    release: 'Release',
-    beta: 'Beta',
-    alpha: 'Alpha',
-    no_versions: 'No versions yet',
-    game_versions: 'Game Versions',
-    loaders: 'Loaders',
-    popularity: 'Popularity',
-    sort_by: 'Sort by',
-    recently_updated: 'Recently updated',
-    follows_sort: 'Follows',
-    alphabetical: 'Alphabetical',
-    read_all: 'Read All',
-    show_more_versions: 'Show versions',
-    hide_versions: 'Hide versions',
-    mark_group_as_read: 'Mark as read',
-    received_label: 'Received',
-    project_updated_group: 'A project you follow has been updated',
-    press_back_again: 'Press back again to exit',
-    accent_color: 'Accent Color',
-    reset: 'Reset',
-    show_preview: 'Show preview',
-    hide_preview: 'Hide preview',
-    payouts: 'Payouts',
-    available: 'Available now',
-    last_30_days: 'Last 30 days',
-    all_time: 'All time',
-    recent_transactions: 'Recent transactions',
-    no_payout_transactions: 'No payout transactions available',
-    token_no_payouts_access: 'Token has no payouts access. Recreate it with payouts scope.',
-    payouts_endpoint_unavailable: 'Payout history is unavailable (404). This can mean missing access (needs PAYOUTS_READ scope) or the resource is unavailable. Wallet balance may still be shown separately.',
-    payouts_api_unavailable: 'Payout history is unavailable: this endpoint is missing from the public API (route does not exist). Open Revenue on the Modrinth website to view transactions.',
-    open_revenue_page: 'Open Revenue',
-    open_payout_settings: 'Payout settings',
-    pending: 'Pending',
-    withdrawn: 'Withdrawn',
-    payout_data_unavailable: 'Payout data is not available for this account/token.',
-    projects_label: 'Projects',
-    total_label: 'Total',
-    downloads_label: 'Downloads',
-    follows_label: 'Follows',
-    avg_label: 'Avg',
-    downloads_per_project: 'Downloads / project',
-    no_top_projects: 'No top projects data',
-    categories_overview: 'Categories',
-    update_available: 'Update Available',
-    update_new_version: 'New version',
-    update_current: 'Current version',
-    update_download: 'Download',
-    update_later: 'Later',
-    update_whats_new: 'What\'s new',
-    update_outdated: 'Outdated version',
-    update_view_release: 'View release'
-  }
-};
 
 type ResolvedNotification = ModrinthNotification & {
   displayTitle: string;
@@ -729,7 +265,10 @@ const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children })
     const stored = localStorage.getItem('theme');
     return stored === 'light' ? 'light' : 'dark';
   });
-  const [language, setLanguageState] = useState<Language>(() => (localStorage.getItem('language') as Language) || 'en');
+  const [language, setLanguageState] = useState<Language>(() => {
+    const stored = localStorage.getItem('language');
+    return stored && isSupportedLanguage(stored) ? stored : DEFAULT_LANGUAGE;
+  });
   const [accentColor, setAccentColorState] = useState<string>(() => localStorage.getItem('accentColor') || '#30B27C');
 
   const setTheme = (newTheme: ThemeMode) => {
@@ -755,7 +294,7 @@ const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children })
   }, []);
 
   const t = (key: string) => {
-    return (TRANSLATIONS[language] as any)[key] || key;
+    return (TRANSLATIONS[language] as Record<string, string>)[key] || key;
   };
 
   return (
@@ -769,6 +308,86 @@ const useSettings = () => {
   const context = useContext(SettingsContext);
   if (!context) throw new Error('useSettings must be used within SettingsProvider');
   return context;
+};
+
+const LanguageSelect: React.FC<{
+  value: Language;
+  onChange: (language: Language) => void;
+  compact?: boolean;
+}> = ({ value, onChange, compact = false }) => {
+  const { theme, t } = useSettings();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const current = LANGUAGE_OPTIONS.find((option) => option.code === value) || LANGUAGE_OPTIONS[0];
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  return (
+    <div className="relative z-30" ref={rootRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className={`w-full flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition-colors ${
+          theme === 'light'
+            ? 'bg-black/[0.05] hover:bg-black/[0.08]'
+            : 'bg-modrinth-card hover:bg-modrinth-cardHover'
+        } ${compact ? 'py-3' : 'py-3.5'}`}
+      >
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-modrinth-text">{current.nativeLabel}</div>
+          <div className="text-[11px] uppercase tracking-[0.14em] text-modrinth-muted">{current.label}</div>
+        </div>
+        <ChevronDown size={16} className={`shrink-0 text-modrinth-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div
+          className={`absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[80] rounded-2xl p-2 shadow-[0_14px_34px_rgba(0,0,0,0.34)] ${
+            theme === 'light'
+              ? 'bg-white'
+              : 'bg-modrinth-card'
+          } animate-fade-in-up`}
+        >
+          {LANGUAGE_OPTIONS.map((option) => {
+            const active = option.code === value;
+            return (
+              <button
+                key={option.code}
+                type="button"
+                onClick={() => {
+                  onChange(option.code);
+                  setOpen(false);
+                }}
+                className={`w-full flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                  active
+                    ? 'bg-modrinth-green/14 text-modrinth-green'
+                    : theme === 'light'
+                      ? 'text-black/70 hover:bg-black/[0.05]'
+                      : 'text-modrinth-text hover:bg-modrinth-cardHover'
+                }`}
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">{option.nativeLabel}</div>
+                  <div className="text-[11px] uppercase tracking-[0.12em] opacity-70">{option.label}</div>
+                </div>
+                {active ? <Check size={14} /> : <span className="w-[14px]" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 };
 
 // --- Components ---
@@ -785,20 +404,9 @@ const WelcomeSetup: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
         <h2 className="text-3xl font-bold text-modrinth-text mb-3 animate-fade-in-up">{t('welcome_title')}</h2>
         <p className="text-modrinth-muted mb-10 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>{t('welcome_subtitle')}</p>
 
-        <div className="w-full bg-modrinth-card/75 backdrop-blur-xl p-4 rounded-3xl shadow-[0_10px_26px_rgba(0,0,0,0.22)] overflow-hidden">
+        <div className="w-full bg-modrinth-card/75 backdrop-blur-xl p-4 rounded-3xl shadow-[0_10px_26px_rgba(0,0,0,0.22)] overflow-visible">
           <div className="text-modrinth-green font-bold text-sm uppercase mb-3">{t('choose_language')}</div>
-          <div className="flex bg-modrinth-bg rounded-xl p-1 border border-modrinth-border">
-            {(['en', 'ru'] as Language[]).map(l => (
-              <button
-                key={l}
-                type="button"
-                onClick={() => setLanguage(l)}
-                className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all ${language === l ? 'bg-modrinth-card text-modrinth-text shadow-sm' : 'text-modrinth-muted hover:text-modrinth-text'}`}
-              >
-                {l.toUpperCase()}
-              </button>
-            ))}
-          </div>
+          <LanguageSelect value={language} onChange={setLanguage} />
         </div>
       </div>
 
@@ -1661,6 +1269,9 @@ const ProjectDetail: React.FC<{ token: string; currentUserId?: string | null }> 
   const [editingVersionDependencies, setEditingVersionDependencies] = useState<ProjectDependency[]>([]);
   const [savingVersion, setSavingVersion] = useState(false);
   const [versionMenuId, setVersionMenuId] = useState<string | null>(null);
+  const [selectedVersion, setSelectedVersion] = useState<ModrinthVersion | null>(null);
+  const [selectedVersionDeps, setSelectedVersionDeps] = useState<ProjectDependency[]>([]);
+  const [selectedVersionDepsLoading, setSelectedVersionDepsLoading] = useState(false);
   const { t, theme } = useSettings();
 
   const [showBodyPreview, setShowBodyPreview] = useState(false);
@@ -1702,6 +1313,63 @@ const ProjectDetail: React.FC<{ token: string; currentUserId?: string | null }> 
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const depInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadVersionDependencies = async () => {
+      if (!selectedVersion) {
+        setSelectedVersionDeps([]);
+        setSelectedVersionDepsLoading(false);
+        return;
+      }
+
+      const rawDeps = selectedVersion.dependencies || [];
+      if (rawDeps.length === 0) {
+        setSelectedVersionDeps([]);
+        setSelectedVersionDepsLoading(false);
+        return;
+      }
+
+      const projectIds = Array.from(new Set(rawDeps.map((dep) => dep.project_id).filter(Boolean))) as string[];
+      if (projectIds.length === 0) {
+        setSelectedVersionDeps(rawDeps);
+        setSelectedVersionDepsLoading(false);
+        return;
+      }
+
+      setSelectedVersionDepsLoading(true);
+      try {
+        const projects = await Promise.all(
+          projectIds.map(async (projectId) => {
+            try {
+              return await fetchProject(projectId, token);
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        if (cancelled) return;
+
+        const byId = new Map(projects.filter(Boolean).map((item) => [item!.id, item!] as const));
+        setSelectedVersionDeps(
+          rawDeps.map((dep) => {
+            const meta = dep.project_id ? byId.get(dep.project_id) : null;
+            return meta ? { ...dep, title: dep.title || meta.title, icon_url: dep.icon_url || meta.icon_url } : dep;
+          })
+        );
+      } finally {
+        if (!cancelled) setSelectedVersionDepsLoading(false);
+      }
+    };
+
+    loadVersionDependencies().catch(console.error);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedVersion, token]);
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     const touch = e.touches[0];
@@ -2036,10 +1704,12 @@ const ProjectDetail: React.FC<{ token: string; currentUserId?: string | null }> 
              <div className="bg-modrinth-card/75 backdrop-blur-xl rounded-3xl p-5 shadow-[0_10px_26px_rgba(0,0,0,0.22)] relative overflow-hidden">
                 <h3 className="text-modrinth-text font-bold mb-2 text-sm flex items-center gap-2"><FileText size={16} className="text-modrinth-green"/> {t('description')}</h3>
                 {project.body?.trim() ? (
-                  <MarkdownRenderer
-                    content={project.body}
-                    className="text-modrinth-text/80 leading-relaxed text-sm markdown-preview"
-                  />
+                  <React.Suspense fallback={<div className="text-modrinth-muted text-sm py-2">Loading description...</div>}>
+                    <MarkdownRenderer
+                      content={project.body}
+                      className="text-modrinth-text/80 leading-relaxed text-sm markdown-preview"
+                    />
+                  </React.Suspense>
                 ) : (
                   <p className="text-modrinth-text/80 leading-relaxed text-sm">{t('no_description')}</p>
                 )}
@@ -2097,7 +1767,11 @@ const ProjectDetail: React.FC<{ token: string; currentUserId?: string | null }> 
                     </div>
                 ) : (
                     versions.map(v => (
-                        <div key={v.id} className="bg-modrinth-card/75 backdrop-blur-xl p-4 rounded-3xl relative shadow-[0_10px_26px_rgba(0,0,0,0.22)] overflow-hidden">
+                        <div
+                          key={v.id}
+                          onClick={() => setSelectedVersion(v)}
+                          className="bg-modrinth-card/75 backdrop-blur-xl p-4 rounded-3xl relative shadow-[0_10px_26px_rgba(0,0,0,0.22)] overflow-hidden cursor-pointer active:scale-[0.99] transition-transform"
+                        >
                             <div className="flex justify-between items-start mb-3">
                                 <div>
                                     <div className="flex items-center gap-2 mb-1">
@@ -2115,13 +1789,13 @@ const ProjectDetail: React.FC<{ token: string; currentUserId?: string | null }> 
                                 <div className="flex flex-col items-end gap-2">
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setVersionMenuId(prev => prev === v.id ? null : v.id); }}
-                                    className={`p-1.5 rounded-full transition-colors ${
+                                    className={`p-3 rounded-full transition-colors ${
                                       theme === 'light'
-                                        ? 'text-black/50 hover:text-black hover:bg-black/5'
-                                        : 'text-zinc-500 hover:text-modrinth-green hover:bg-modrinth-bg'
+                                        ? 'text-black/80 hover:text-black hover:bg-black/5'
+                                        : 'text-zinc-300 hover:text-modrinth-green hover:bg-modrinth-bg'
                                     }`}
                                   >
-                                    <MoreVertical size={14} />
+                                    <MoreVertical size={20} strokeWidth={3} />
                                   </button>
                                   {versionMenuId === v.id && (
                                     <div
@@ -2218,7 +1892,9 @@ const ProjectDetail: React.FC<{ token: string; currentUserId?: string | null }> 
                   />
                   {showBodyPreview && (
                   <div className="mt-1 bg-modrinth-bg border border-dashed border-modrinth-border rounded-xl p-3.5 text-sm text-modrinth-text prose prose-invert max-w-none markdown-preview no-scrollbar overflow-x-auto">
-                      <MarkdownRenderer content={formData.body || ''} />
+                      <React.Suspense fallback={<div className="text-modrinth-muted text-xs">Loading preview...</div>}>
+                        <MarkdownRenderer content={formData.body || ''} />
+                      </React.Suspense>
                   </div>
                   )}
                 </div>
@@ -2468,6 +2144,135 @@ const ProjectDetail: React.FC<{ token: string; currentUserId?: string | null }> 
               alt="Gallery preview"
               className="w-full h-full max-h-[75vh] object-contain rounded-xl bg-modrinth-bg"
             />
+          </div>
+        </div>
+      )}
+
+      {selectedVersion && (
+        <div className={`fixed inset-0 z-[185] ${theme === 'light' ? 'bg-black/30' : 'bg-black/70'} backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in`}>
+          <div className={`${theme === 'light' ? 'bg-white/95 shadow-[0_14px_36px_rgba(0,0,0,0.2)]' : 'bg-modrinth-card/95 shadow-[0_18px_46px_rgba(0,0,0,0.48)]'} backdrop-blur-xl w-full max-w-2xl rounded-3xl max-h-[85vh] overflow-hidden`}>
+            <div className="p-5 border-b border-zinc-700/40 flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-xs font-bold uppercase tracking-[0.14em] text-modrinth-muted mb-2">{t('version_details')}</div>
+                <h3 className="text-2xl font-bold text-modrinth-text break-words">{selectedVersion.name || selectedVersion.version_number}</h3>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-modrinth-muted">
+                  <span className="px-2.5 py-1 rounded-full bg-modrinth-bg text-modrinth-text font-semibold">{selectedVersion.version_number}</span>
+                  <span className={`px-2.5 py-1 rounded-full border font-bold uppercase ${
+                    selectedVersion.version_type === 'release' ? 'text-green-400 border-green-400/30 bg-green-400/10' :
+                    selectedVersion.version_type === 'beta' ? 'text-blue-400 border-blue-400/30 bg-blue-400/10' :
+                    'text-orange-400 border-orange-400/30 bg-orange-400/10'
+                  }`}>
+                    {t(selectedVersion.version_type)}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedVersion(null)}
+                className={theme === 'light' ? 'p-2 rounded-full hover:bg-black/5 text-black/60 hover:text-black transition-colors' : 'p-2 rounded-full hover:bg-modrinth-bg text-modrinth-muted hover:text-modrinth-text transition-colors'}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto max-h-[calc(85vh-6rem)] p-5 space-y-5">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-modrinth-bg/70 rounded-2xl p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-modrinth-muted mb-1">{t('downloads')}</div>
+                  <div className="text-lg font-bold text-modrinth-text">{selectedVersion.downloads.toLocaleString()}</div>
+                </div>
+                <div className="bg-modrinth-bg/70 rounded-2xl p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-modrinth-muted mb-1">{t('published_on')}</div>
+                  <div className="text-lg font-bold text-modrinth-text">{new Date(selectedVersion.date_published).toLocaleDateString()}</div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-modrinth-muted">{t('game_versions')}</div>
+                <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                  {selectedVersion.game_versions.map((gameVersion) => (
+                    <span key={gameVersion} className="text-[11px] bg-modrinth-bg px-2.5 py-1.5 rounded-full text-modrinth-text whitespace-nowrap">
+                      {gameVersion}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-modrinth-muted">{t('loaders')}</div>
+                <div className="flex gap-2 flex-wrap">
+                  {selectedVersion.loaders.map((loader) => (
+                    <span key={loader} className="text-[11px] font-bold uppercase text-modrinth-text/80 bg-modrinth-bg px-2.5 py-1.5 rounded-full">
+                      {loader}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-modrinth-bg/50 rounded-3xl p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <h4 className="text-lg font-bold text-modrinth-text">{t('changelog')}</h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedVersion(null);
+                      openEditVersion(selectedVersion);
+                    }}
+                    className="text-xs font-bold px-3 py-2 rounded-2xl bg-modrinth-cardHover text-modrinth-text hover:bg-modrinth-border/60 transition-colors"
+                  >
+                    {t('edit')}
+                  </button>
+                </div>
+                {selectedVersion.changelog?.trim() ? (
+                  <React.Suspense fallback={<div className="text-modrinth-muted text-sm py-2">Loading changelog...</div>}>
+                    <MarkdownRenderer content={selectedVersion.changelog} className="markdown-preview text-sm text-modrinth-text/85" />
+                  </React.Suspense>
+                ) : (
+                  <p className="text-sm text-modrinth-muted">{t('no_changelog')}</p>
+                )}
+              </div>
+
+              <div className="bg-modrinth-bg/50 rounded-3xl p-4">
+                <h4 className="text-lg font-bold text-modrinth-text mb-3">{t('dependencies')}</h4>
+                {selectedVersionDepsLoading ? (
+                  <div className="flex justify-center py-6"><Loader2 className="animate-spin text-modrinth-green" /></div>
+                ) : selectedVersionDeps.length === 0 ? (
+                  <p className="text-sm text-modrinth-muted">{t('no_dependencies')}</p>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedVersionDeps.map((dep, index) => (
+                      <div key={`${dep.project_id || dep.file_name || dep.version_id || index}`} className="flex items-center gap-3 bg-modrinth-card/80 rounded-2xl p-3">
+                        <div className="w-12 h-12 rounded-xl bg-modrinth-bg overflow-hidden flex items-center justify-center flex-shrink-0">
+                          {dep.icon_url ? (
+                            <img src={dep.icon_url} alt={dep.title || dep.project_id || 'Dependency'} className="w-full h-full object-cover" />
+                          ) : (
+                            <Package size={18} className="text-modrinth-muted opacity-70" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-sm font-semibold text-modrinth-text truncate">{dep.title || dep.project_id || dep.file_name || dep.version_id}</div>
+                            <span className="text-[10px] uppercase tracking-[0.12em] text-modrinth-muted bg-modrinth-bg px-2 py-1 rounded-full">
+                              {dep.dependency_type}
+                            </span>
+                          </div>
+                          <div className="text-xs text-modrinth-muted mt-1 break-words">
+                            {dep.version_id || dep.project_id || dep.file_name}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedVersion(null)}
+                className="w-full py-3 rounded-2xl font-bold text-sm bg-modrinth-cardHover text-modrinth-text hover:bg-modrinth-border/60 transition-colors"
+              >
+                {t('close_details')}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -3223,19 +3028,12 @@ const SettingsPage: React.FC<{ user: ModrinthUser; onLogout: () => void; token: 
       )}
 
       <div className="space-y-4 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-         <div className="bg-modrinth-card/75 backdrop-blur-xl p-4 rounded-3xl shadow-[0_10px_26px_rgba(0,0,0,0.22)] overflow-hidden">
+         <div className="bg-modrinth-card/75 backdrop-blur-xl p-4 rounded-3xl shadow-[0_10px_26px_rgba(0,0,0,0.22)] overflow-visible relative z-20">
            <div className="flex items-center gap-2 mb-3 text-modrinth-green font-bold text-sm uppercase"><Globe size={16} /> {t('language')}</div>
-           <div className="flex bg-modrinth-bg rounded-xl p-1 border border-modrinth-border">
-             {/* Swapped order: EN first */}
-             {(['en', 'ru'] as Language[]).map(l => (
-               <button key={l} onClick={() => setLanguage(l)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${language === l ? 'bg-modrinth-card text-modrinth-text shadow-sm' : 'text-modrinth-muted hover:text-modrinth-text'}`}>
-                 {l.toUpperCase()}
-               </button>
-             ))}
-           </div>
+           <LanguageSelect value={language} onChange={setLanguage} compact />
          </div>
 
-         <div className="bg-modrinth-card/75 backdrop-blur-xl p-4 rounded-3xl shadow-[0_10px_26px_rgba(0,0,0,0.22)] overflow-hidden">
+         <div className="bg-modrinth-card/75 backdrop-blur-xl p-4 rounded-3xl shadow-[0_10px_26px_rgba(0,0,0,0.22)] overflow-hidden relative z-0">
            <div className="flex items-center gap-2 mb-3 text-modrinth-green font-bold text-sm uppercase"><Moon size={16} /> {t('theme')}</div>
            <div className="flex bg-modrinth-bg rounded-xl p-1 border border-modrinth-border">
             {(['dark', 'light'] as ThemeMode[]).map(m => (
@@ -3291,7 +3089,7 @@ const SettingsPage: React.FC<{ user: ModrinthUser; onLogout: () => void; token: 
                  placeholder="#30B27C"
                  className="w-full bg-modrinth-bg border border-modrinth-border rounded-xl px-4 py-3 text-modrinth-text text-sm font-mono uppercase focus:border-modrinth-green outline-none"
                />
-               <p className="text-xs text-modrinth-muted mt-2">Hex формат: #RRGGBB</p>
+               <p className="text-xs text-modrinth-muted mt-2">{t('hex_format_hint')}</p>
              </div>
            </div>
          </div>
