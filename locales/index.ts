@@ -1,9 +1,11 @@
 import { en } from './en';
 import { ru } from './ru';
+import { de } from './de';
 
 export const TRANSLATIONS = {
   en,
-  ru
+  ru,
+  de
 } as const;
 
 export type Language = keyof typeof TRANSLATIONS;
@@ -13,7 +15,8 @@ export const DEFAULT_LANGUAGE: Language = 'en';
 
 export const LANGUAGE_OPTIONS = [
   { code: 'en', label: 'English', nativeLabel: 'English' },
-  { code: 'ru', label: 'Russian', nativeLabel: 'Русский' }
+  { code: 'ru', label: 'Russian', nativeLabel: 'Русский' },
+  { code: 'de', label: 'German', nativeLabel: 'Deutsch' }
 ] as const satisfies ReadonlyArray<{
   code: Language;
   label: string;
